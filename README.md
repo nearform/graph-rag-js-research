@@ -1,12 +1,7 @@
-![CI](https://github.com/nearform/hub-template/actions/workflows/ci.yml/badge.svg?event=push)
+# Graph RAG JS Research
+Repository to research on Graph RAG(Graph Retrieval Augmented Generation) using OpenAI and Neo4J Graph database to improve accuracy of prompt results.
 
-# Hub Template
-
-A feature-packed template to start a new repository on the hub, including:
-
-- code linting with [ESlint](https://eslint.org) and [prettier](https://prettier.io)
-- pre-commit code linting and commit message linting with [husky](https://www.npmjs.com/package/husky) and [commitlint](https://commitlint.js.org/)
-- dependabot setup with automatic merging thanks to ["merge dependabot" GitHub action](https://github.com/fastify/github-action-merge-dependabot)
-- notifications about commits waiting to be released thanks to ["notify release" GitHub action](https://github.com/nearform/github-action-notify-release)
-- PRs' linked issues check with ["check linked issues" GitHub action](https://github.com/nearform/github-action-check-linked-issues)
-- Continuous Integration GitHub workflow
+## Setup
+- Create a `.env` file in the root folder and copy the contents from `.env.sample` file. Get Open AI API key and Neo4J credentials and set those values to the env variables in the `.env` file.
+- Run `npm install` command to install dependencies.
+- Run `npm run retriever` command to run the application.
