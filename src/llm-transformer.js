@@ -204,7 +204,7 @@ export class LLMGraphTransformer {
 
     // Todo: Remove the below line once the issue is fixed in the LangChain JS library.
     // https://github.com/langchain-ai/langchainjs/blob/main/libs/langchain-community/src/graphs/neo4j_graph.ts#L46
-    document.page_content = document.pageContent;
+    document.page_content = document.pageContent
 
     return new GraphDocument({ nodes, relationships, source: document })
   }

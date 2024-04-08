@@ -13,7 +13,9 @@ const openAIApiKey = process.env.OPENAI_API_KEY
 
 const graph = await Neo4jGraph.initialize({ url, username, password })
 
-const loader = new IMSDBLoader('https://imsdb.com/scripts/Avengers,-The-(2012).html');
+const loader = new IMSDBLoader(
+  'https://imsdb.com/scripts/Avengers,-The-(2012).html'
+)
 const rawDocs = await loader.load()
 
 // Define chunking strategy

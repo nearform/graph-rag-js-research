@@ -199,12 +199,12 @@ function logResult(result) {
   console.log(`Search Result - ${result}\n`)
 }
 
-logResult(await chain.invoke('Who is the billionaire in the Avengers group?'));
-logResult(await chain.invoke('Loki is a native of which planet?'));
-logResult(await chain.invoke('What is the other name of Bruce Banner?'));
-logResult(await chain.invoke('Where is the Stark Tower located?'));
-logResult(await chain.invoke('Who is Loki?'));
-logResult(await chain.invoke('Who is Jarvis?'));
+logResult(await chain.invoke('Who is the billionaire in the Avengers group?'))
+logResult(await chain.invoke('Loki is a native of which planet?'))
+logResult(await chain.invoke('What is the other name of Bruce Banner?'))
+logResult(await chain.invoke('Where is the Stark Tower located?'))
+logResult(await chain.invoke('Who is Loki?'))
+logResult(await chain.invoke('Who is Jarvis?'))
 
 await graph.close()
 await neo4jVectorIndex.close()
