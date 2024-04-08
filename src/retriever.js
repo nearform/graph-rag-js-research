@@ -2,25 +2,15 @@ import { z } from 'zod'
 import 'neo4j-driver'
 import { Neo4jGraph } from '@langchain/community/graphs/neo4j_graph'
 import { ChatPromptTemplate } from '@langchain/core/prompts'
-//import { PromptTemplate } from '@langchain/core/prompts'
 import { ChatOpenAI } from '@langchain/openai'
 import { Neo4jVectorStore } from '@langchain/community/vectorstores/neo4j_vector'
 import { OpenAIEmbeddings } from '@langchain/openai'
 import { createStructuredOutputRunnable } from 'langchain/chains/openai_functions'
 import {
-  /*RunnableBranch,
-  RunnableLambda,
-  RunnableParallel,*/
   RunnablePassthrough,
   RunnableSequence
 } from '@langchain/core/runnables'
 import { StringOutputParser } from '@langchain/core/output_parsers'
-//import { AIMessage, HumanMessage } from '@langchain/core/messages'
-
-import { IMSDBLoader } from 'langchain/document_loaders/web/imsdb'
-import { TokenTextSplitter } from 'langchain/text_splitter'
-import { Document } from '@langchain/core/documents'
-import { LLMGraphTransformer } from './llm-transformer.js'
 
 const url = process.env.NEO4J_URI
 const username = process.env.NEO4J_USERNAME
@@ -35,43 +25,6 @@ const llm = new ChatOpenAI({
   openAIApiKey
 })
 
-/* Loader code start */
-const loader = new IMSDBLoader(
-  'https://imsdb.com/scripts/Things-My-Father-Never-Taught-Me,-The.html'
-)
-const rawDocs = await loader.load()
-
-const textSplitter = new TokenTextSplitter({
-  chunkSize: 512,
-  chunkOverlap: 24
-})
-
-let documents = []
-for (let i = 0; i < rawDocs.length; i++) {
-  const chunks = await textSplitter.splitText(rawDocs[i].pageContent)
-  const processedDocs = chunks.map(
-    chunk =>
-      new Document({
-        pageContent: chunk,
-        metadata: rawDocs[i].metadata
-      })
-  )
-  documents.push(...processedDocs)
-}
-
-const llmTransformer = new LLMGraphTransformer(llm)
-const graphDocuments = await llmTransformer.convertToGraphDocuments(documents)
-
-console.log(graphDocuments.length, '.......graphDocuments')
-
-await graph.addGraphDocuments(graphDocuments, {
-  baseEntityLabel: true,
-  includeSource: true
-})
-
-console.log('Completed adding graph documents!!!')
-/* Loader code end */
-
 const neo4jVectorIndex = await Neo4jVectorStore.fromExistingGraph(
   new OpenAIEmbeddings({ openAIApiKey }),
   {
@@ -84,8 +37,6 @@ const neo4jVectorIndex = await Neo4jVectorStore.fromExistingGraph(
     embeddingNodeProperty: 'embedding'
   }
 )
-
-console.log('Completed adding unstructured documents !!!')
 
 // Identifying information about entities.
 const entitiesSchema = z
@@ -185,7 +136,6 @@ function generateFullTextQuery(input) {
 async function structuredRetriever(question) {
   let result = ''
   const entities = await entityChain.invoke({ question })
-  //console.log(entities, '............entities');
 
   for (const entity of entities.names) {
     const response = await graph.query(
@@ -205,8 +155,6 @@ async function structuredRetriever(question) {
       { query: generateFullTextQuery(entity) }
     )
 
-    //console.log(generateFullTextQuery(entity), '.............generateFullTextQuery........', entity);
-
     result += response.map(el => el.output).join('\n') + '\n'
   }
 
@@ -219,7 +167,6 @@ async function retriever(question) {
 
   const similaritySearchResults =
     await neo4jVectorIndex.similaritySearch(question)
-  //console.log(similaritySearchResults, '.................similaritySearchResults');
   const unstructuredData = similaritySearchResults.map(el => el.pageContent)
 
   const finalData = `Structured data:
@@ -228,63 +175,9 @@ Unstructured data:
 ${unstructuredData.map(content => `#Document ${content}`).join('\n')}
     `
 
-  console.log(finalData, '.............finalData')
   return finalData
 }
 
-/*const _template = `Given the following conversation and a follow up question, rephrase the follow up question to be a standalone question,
-in its original language.
-Chat History:
-{chat_history}
-Follow Up Input: {question}
-Standalone question:`;
-const CONDENSE_QUESTION_PROMPT = PromptTemplate.fromTemplate(_template);
-
-function formatChatHistory(chatHistory) {
-    const buffer = [];
-    for (const [human, ai] of chatHistory) {
-        buffer.push(new HumanMessage({ content: human }));
-        buffer.push(new AIMessage({ content: ai }));
-    }
-    return buffer;
-}
-
-const _search_query = RunnableBranch.from([
-    // If input includes chat_history, we condense it with the follow-up question
-    [
-        RunnableLambda.from((x) => Boolean(x.chat_history)).withConfig({
-            runName: "HasChatHistoryCheck",
-        }), // Condense follow-up question and chat into a standalone_question
-        RunnablePassthrough.assign({
-            chat_history: (x) => formatChatHistory(x.chat_history),
-        })
-        .pipe(CONDENSE_QUESTION_PROMPT)
-        .pipe(llm)
-        .pipe(new StringOutputParser())
-    ],
-    // Else, we have no chat history, so just pass through the question
-    RunnableLambda.from((x) => x.question)
-]);
-
-const template = `Answer the question based only on the following context:
-{context}
-
-Question: {question}
-Use natural language and be concise.
-Answer:`;
-const promptFromTemplate = ChatPromptTemplate.fromTemplate(template);
-
-const chain = RunnableSequence.from([
-    {
-        context: _search_query.pipe(retriever),
-        question: new RunnablePassthrough(),
-    },
-    promptFromTemplate,
-    llm,
-    new StringOutputParser()
-]);*/
-
-// Non Chaining working code
 const template = `Answer the question based only on the following context:
 {context}
 
@@ -306,13 +199,12 @@ function logResult(result) {
   console.log(`Search Result - ${result}\n`)
 }
 
-logResult(await chain.invoke('Who is the father of Melvin?'))
-logResult(await chain.invoke('Who is Mary?'))
-logResult(
-  await chain.invoke(
-    'What happens in the first meeting between Mary and Melvin?'
-  )
-)
+logResult(await chain.invoke('Who is the billionaire in the Avengers group?'));
+logResult(await chain.invoke('Loki is a native of which planet?'));
+logResult(await chain.invoke('What is the other name of Bruce Banner?'));
+logResult(await chain.invoke('Where is the Stark Tower located?'));
+logResult(await chain.invoke('Who is Loki?'));
+logResult(await chain.invoke('Who is Jarvis?'));
 
 await graph.close()
 await neo4jVectorIndex.close()

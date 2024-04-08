@@ -8,8 +8,8 @@
     "lint": "eslint .",
     "test": "echo \"Error: no test specified\" && exit 0",
     "prepare": "husky",
-    "retriever": "node --env-file=.env index.js",
-    "loader": "node --env-file=.env loader.js"
+    "retriever": "node --env-file=.env src/retriever.js",
+    "loader": "node --env-file=.env src/loader.js"
   },
   "repository": {
     "type": "git",

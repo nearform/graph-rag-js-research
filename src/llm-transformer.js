@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { ChatPromptTemplate } from '@langchain/core/prompts'
 //import { GraphDocument, Node, Relationship } from '@langchain/community/dist/graphs/graph_document';
+// Todo: Ideally, graph-document.js should come from the LangChain JS library. But for some reason, it is not available in the library.
 import { GraphDocument, Node, Relationship } from './graph-document.js'
 
 const systemPrompt =
@@ -200,6 +201,10 @@ export class LLMGraphTransformer {
         )
       }
     }
+
+    // Todo: Remove the below line once the issue is fixed in the LangChain JS library.
+    // https://github.com/langchain-ai/langchainjs/blob/main/libs/langchain-community/src/graphs/neo4j_graph.ts#L46
+    document.page_content = document.pageContent;
 
     return new GraphDocument({ nodes, relationships, source: document })
   }
