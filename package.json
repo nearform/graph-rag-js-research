@@ -7,7 +7,9 @@
   "scripts": {
     "lint": "eslint .",
     "test": "echo \"Error: no test specified\" && exit 0",
-    "prepare": "husky"
+    "prepare": "husky",
+    "retriever": "node --env-file=.env src/retriever.js",
+    "loader": "node --env-file=.env src/loader.js"
   },
   "repository": {
     "type": "git",
@@ -32,5 +34,14 @@
   },
   "lint-staged": {
     "*.{js,jsx}": "eslint --cache --fix"
+  },
+  "dependencies": {
+    "@langchain/community": "^0.0.44",
+    "@langchain/core": "^0.1.53",
+    "@langchain/openai": "^0.0.26",
+    "cheerio": "^1.0.0-rc.12",
+    "langchain": "^0.1.31",
+    "neo4j-driver": "^5.19.0",
+    "zod": "^3.22.4"
   }
 }
