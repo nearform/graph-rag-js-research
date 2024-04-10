@@ -8,9 +8,13 @@ import { OpenAIEmbeddings } from '@langchain/openai'
 import { createStructuredOutputRunnable } from 'langchain/chains/openai_functions'
 import {
   RunnablePassthrough,
-  RunnableSequence
+  RunnableSequence,
+  RunnableBranch,
+  RunnableLambda
 } from '@langchain/core/runnables'
 import { StringOutputParser } from '@langchain/core/output_parsers'
+import { PromptTemplate } from '@langchain/core/prompts'
+import { AIMessage, HumanMessage } from '@langchain/core/messages'
 
 const url = process.env.NEO4J_URI
 const username = process.env.NEO4J_USERNAME
@@ -178,15 +182,63 @@ ${unstructuredData.map(content => `#Document ${content}`).join('\n')}
   return finalData
 }
 
+/**
+ * The below code rephrases the question based on the chat history.
+ * Consider the below code example where the question('When was she born?') is rephrased as 'When was Elizabeth I born?' based on the chat history.
+ * ```javascript
+ * await chain.invoke({
+ *  question: "When was she born?",
+ *  chat_history: [["Which house did Elizabeth I belong to?", "House Of Tudor"]]
+ * })
+ * ```
+ */
+const _template = `Given the following conversation and a follow up question, rephrase the follow up question to be a standalone question,
+in its original language.
+Chat History:
+{chat_history}
+Follow Up Input: {question}
+Standalone question:`
+const CONDENSE_QUESTION_PROMPT = PromptTemplate.fromTemplate(_template)
+
+function formatChatHistory(chatHistory) {
+  const buffer = []
+  for (const [human, ai] of chatHistory) {
+    buffer.push(new HumanMessage({ content: human }))
+    buffer.push(new AIMessage({ content: ai }))
+  }
+  return buffer
+}
+
+// eslint-disable-next-line no-unused-vars
+const searchQuery = RunnableBranch.from([
+  // If input includes chat_history, we condense it with the follow-up question
+  [
+    RunnableLambda.from(x => Boolean(x.chat_history)).withConfig({
+      runName: 'HasChatHistoryCheck'
+    }), // Condense follow-up question and chat into a standalone_question
+    RunnablePassthrough.assign({
+      chat_history: x => formatChatHistory(x.chat_history)
+    })
+      .pipe(CONDENSE_QUESTION_PROMPT)
+      .pipe(llm)
+      .pipe(new StringOutputParser())
+  ],
+  // Else, we have no chat history, so just pass through the question
+  RunnableLambda.from(x => x.question)
+])
+
 const template = `Answer the question based only on the following context:
 {context}
 
 Question: {question}
-`
+Use natural language and be concise.
+Answer:`
 const promptFromTemplate = ChatPromptTemplate.fromTemplate(template)
 
 const chain = RunnableSequence.from([
   {
+    // Replace `context: retriever` with the below line to enable chaining.
+    // context: searchQuery.pipe(retriever),
     context: retriever,
     question: new RunnablePassthrough()
   },
@@ -205,6 +257,16 @@ logResult(await chain.invoke('What is the other name of Bruce Banner?'))
 logResult(await chain.invoke('Where is the Stark Tower located?'))
 logResult(await chain.invoke('Who is Loki?'))
 logResult(await chain.invoke('Who is Jarvis?'))
+
+// Uncomment the below lines to invoke chaining prompts.
+/*logResult(await chain.invoke({
+  question: 'Who is the billionaire in the Avengers group?'
+}))
+
+logResult(await chain.invoke({
+  question: "What is Stark's other name?",
+  chat_history: [["Who is the billionaire in the Avengers group?", "Tony Stark"]]
+}));*/
 
 await graph.close()
 await neo4jVectorIndex.close()
