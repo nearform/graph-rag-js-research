@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import 'neo4j-driver'
 import { Neo4jGraph } from '@langchain/community/graphs/neo4j_graph'
-import { ChatPromptTemplate } from '@langchain/core/prompts'
+import { ChatPromptTemplate, PromptTemplate } from '@langchain/core/prompts'
 import { ChatOpenAI } from '@langchain/openai'
 import { Neo4jVectorStore } from '@langchain/community/vectorstores/neo4j_vector'
 import { OpenAIEmbeddings } from '@langchain/openai'
@@ -11,19 +11,20 @@ import {
   RunnableSequence
 } from '@langchain/core/runnables'
 import { StringOutputParser } from '@langchain/core/output_parsers'
+import { generateFullTextQuery } from './utils.js'
 
 const url = process.env.NEO4J_URI
 const username = process.env.NEO4J_USERNAME
 const password = process.env.NEO4J_PASSWORD
 const openAIApiKey = process.env.OPENAI_API_KEY
-
-const graph = await Neo4jGraph.initialize({ url, username, password })
+const modelName = 'gpt-3.5-turbo-0125'
 
 const llm = new ChatOpenAI({
-  temperature: 0,
-  modelName: 'gpt-3.5-turbo-0125',
-  openAIApiKey
+  openAIApiKey,
+  modelName
 })
+
+const graph = await Neo4jGraph.initialize({ url, username, password })
 
 const neo4jVectorIndex = await Neo4jVectorStore.fromExistingGraph(
   new OpenAIEmbeddings({ openAIApiKey }),
@@ -70,63 +71,6 @@ await graph.query(
   'CREATE FULLTEXT INDEX entity IF NOT EXISTS FOR (e:__Entity__) ON EACH [e.id]'
 )
 
-function removeLuceneChars(text) {
-  if (text === undefined || text === null) {
-    return null
-  }
-  // Remove Lucene special characters
-  const specialChars = [
-    '+',
-    '-',
-    '&',
-    '|',
-    '!',
-    '(',
-    ')',
-    '{',
-    '}',
-    '[',
-    ']',
-    '^',
-    '"',
-    '~',
-    '*',
-    '?',
-    ':',
-    '\\'
-  ]
-  let modifiedText = text
-  for (const char of specialChars) {
-    modifiedText = modifiedText.split(char).join(' ')
-  }
-  return modifiedText.trim()
-}
-
-/**
- * Generate a full-text search query for a given input string.
- *
- * This function constructs a query string suitable for a full-text
- * search. It processes the input string by splitting it into words and
- * appending a similarity threshold (~2 changed characters) to each
- * word, then combines them using the AND operator. Useful for mapping
- * entities from user questions to database values, and allows for some
- * misspelings.
- *
- * @param {string} input
- * @returns {string}
- */
-function generateFullTextQuery(input) {
-  let fullTextQuery = ''
-
-  const words = removeLuceneChars(input).split(' ')
-  for (let i = 0; i < words.length - 1; i++) {
-    fullTextQuery += ` ${words[i]}~2 AND`
-  }
-  fullTextQuery += ` ${words[words.length - 1]}~2`
-
-  return fullTextQuery.trim()
-}
-
 /**
  * Collects the neighborhood of entities mentioned in the question.
  *
@@ -162,7 +106,6 @@ async function structuredRetriever(question) {
 }
 
 async function retriever(question) {
-  console.log(`Search Query - ${question}`)
   const structuredData = await structuredRetriever(question)
 
   const similaritySearchResults =
@@ -170,41 +113,93 @@ async function retriever(question) {
   const unstructuredData = similaritySearchResults.map(el => el.pageContent)
 
   const finalData = `Structured data:
-${structuredData}
-Unstructured data:
-${unstructuredData.map(content => `#Document ${content}`).join('\n')}
-    `
-
+  ${structuredData}
+  Unstructured data:
+  ${unstructuredData.map(content => `#Document ${content}`).join('\n')}
+      `
   return finalData
 }
 
-const template = `Answer the question based only on the following context:
-{context}
+const standaloneTemplate = `Given the following conversation and a follow up question, rephrase the follow up question to be a standalone question.
+Chat History:
+{conv_history}
+Follow Up Input: {question}
+Standalone question:`
 
-Question: {question}
-`
-const promptFromTemplate = ChatPromptTemplate.fromTemplate(template)
+const answerTemplate = `You are a helpful and enthusiastic support bot who can answer any question based on the context provided and the conversation history. Try to find the answer in the context. If the answer is not given in the context, find the answer in the conversation history if possible. If you really don't know the answer, say "I am sorry, I don't know the answer to that.". And don't try to makeup the answer. Always speak as you are chatting to a friend
+
+context:{context}
+question: {question}
+answer:`
+
+const answerPrompt = PromptTemplate.fromTemplate(answerTemplate)
+
+const standalonePrompt = PromptTemplate.fromTemplate(standaloneTemplate)
+
+const standaloneQuestionChain = standalonePrompt
+  .pipe(llm)
+  .pipe(new StringOutputParser())
+
+const retrieverChain = RunnableSequence.from([
+  prevResult => prevResult.standalone_question,
+  retriever
+])
+
+const answerChain = answerPrompt.pipe(llm).pipe(new StringOutputParser())
 
 const chain = RunnableSequence.from([
   {
-    context: retriever,
-    question: new RunnablePassthrough()
+    standalone_question: standaloneQuestionChain,
+    orignal_input: new RunnablePassthrough()
   },
-  promptFromTemplate,
-  llm,
-  new StringOutputParser()
+  {
+    context: retrieverChain,
+    question: ({ orignal_input }) => orignal_input.question,
+    conv_history: ({ orignal_input }) => orignal_input.conv_history
+  },
+  /**----------------------
+   **      Debug chain
+   *------------------------**/
+  // prevResult => {
+  //   console.log('prevResult', prevResult)
+  //   return prevResult
+  // },
+  answerChain
 ])
+
+function formatChatHistory(chatHistory) {
+  return chatHistory
+    .map((message, i) => {
+      if (i % 2 === 0) {
+        return `Human: ${message}`
+      }
+      return `AI: ${message}`
+    })
+    .join('\n')
+}
+
+const conversationHistory = []
 
 function logResult(result) {
   console.log(`Search Result - ${result}\n`)
 }
 
-logResult(await chain.invoke('Who is the billionaire in the Avengers group?'))
-logResult(await chain.invoke('Loki is a native of which planet?'))
-logResult(await chain.invoke('What is the other name of Bruce Banner?'))
-logResult(await chain.invoke('Where is the Stark Tower located?'))
-logResult(await chain.invoke('Who is Loki?'))
-logResult(await chain.invoke('Who is Jarvis?'))
+async function ask(question) {
+  console.log(`Search Query - ${question}`)
+  const answer = await chain.invoke({
+    question,
+    conv_history: formatChatHistory(conversationHistory)
+  })
+  conversationHistory.push(question)
+  conversationHistory.push(answer)
+  logResult(answer)
+}
+
+await ask('Loki is a native of which planet?')
+await ask('What is the name of his brother?')
+await ask('Who is the villain among the two?')
+await ask('Who is Tony Stark?')
+await ask('Does he own the Stark Tower?')
 
 await graph.close()
 await neo4jVectorIndex.close()

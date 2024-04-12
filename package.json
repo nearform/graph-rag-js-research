@@ -36,11 +36,11 @@
     "*.{js,jsx}": "eslint --cache --fix"
   },
   "dependencies": {
-    "@langchain/community": "^0.0.44",
-    "@langchain/core": "^0.1.53",
+    "@langchain/community": "^0.0.45",
+    "@langchain/core": "^0.1.55",
     "@langchain/openai": "^0.0.26",
     "cheerio": "^1.0.0-rc.12",
-    "langchain": "^0.1.31",
+    "langchain": "^0.1.32",
     "neo4j-driver": "^5.19.0",
     "zod": "^3.22.4"
   }
