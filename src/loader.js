@@ -3,7 +3,7 @@ import { Neo4jGraph } from '@langchain/community/graphs/neo4j_graph'
 import { IMSDBLoader } from 'langchain/document_loaders/web/imsdb'
 import { TokenTextSplitter } from 'langchain/text_splitter'
 import { ChatOpenAI } from '@langchain/openai'
-import { LLMGraphTransformer } from './llm-transformer.js'
+import { LLMGraphTransformer } from '@langchain/community/experimental/graph_transformers/llm'
 import { Document } from '@langchain/core/documents'
 
 const url = process.env.NEO4J_URI
@@ -46,7 +46,7 @@ const llm = new ChatOpenAI({
   openAIApiKey
 })
 
-const llmTransformer = new LLMGraphTransformer(llm)
+const llmTransformer = new LLMGraphTransformer({ llm })
 const graphDocuments = await llmTransformer.convertToGraphDocuments(documents)
 
 await graph.addGraphDocuments(graphDocuments, {
