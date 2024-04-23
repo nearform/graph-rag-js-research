@@ -17,11 +17,12 @@ const url = process.env.NEO4J_URI
 const username = process.env.NEO4J_USERNAME
 const password = process.env.NEO4J_PASSWORD
 const openAIApiKey = process.env.OPENAI_API_KEY
-const modelName = 'gpt-3.5-turbo-0125'
+const modelName = 'gpt-3.5-turbo'
 
 const llm = new ChatOpenAI({
-  openAIApiKey,
-  modelName
+  temperature: 0,
+  modelName,
+  openAIApiKey
 })
 
 const graph = await Neo4jGraph.initialize({ url, username, password })
