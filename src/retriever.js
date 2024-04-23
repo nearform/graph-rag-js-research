@@ -17,11 +17,12 @@ const url = process.env.NEO4J_URI
 const username = process.env.NEO4J_USERNAME
 const password = process.env.NEO4J_PASSWORD
 const openAIApiKey = process.env.OPENAI_API_KEY
-const modelName = 'gpt-3.5-turbo-0125'
+const modelName = 'gpt-3.5-turbo'
 
 const llm = new ChatOpenAI({
-  openAIApiKey,
-  modelName
+  temperature: 0,
+  modelName,
+  openAIApiKey
 })
 
 const graph = await Neo4jGraph.initialize({ url, username, password })
@@ -83,19 +84,18 @@ async function structuredRetriever(question) {
 
   for (const entity of entities.names) {
     const response = await graph.query(
-      `CALL db.index.fulltext.queryNodes('entity', $query, 
-            {limit:2})
-            YIELD node,score
-            CALL {
-                MATCH (node)-[r:!MENTIONS]->(neighbor)
-                RETURN node.id + ' - ' + type(r) + ' -> ' + neighbor.id AS 
-                output
-                UNION
-                MATCH (node)<-[r:!MENTIONS]-(neighbor)
-                RETURN neighbor.id + ' - ' + type(r) + ' -> ' +  node.id AS 
-                output
-            }
-            RETURN output LIMIT 50`,
+      `CALL db.index.fulltext.queryNodes('entity', $query, {limit:2})
+      YIELD node,score
+      CALL {
+        MATCH (node)-[r:!MENTIONS]->(neighbor)
+        RETURN node.id + ' - ' + type(r) + ' -> ' + neighbor.id AS 
+        output
+        UNION
+        MATCH (node)<-[r:!MENTIONS]-(neighbor)
+        RETURN neighbor.id + ' - ' + type(r) + ' -> ' +  node.id AS 
+        output
+      }
+      RETURN output LIMIT 50`,
       { query: generateFullTextQuery(entity) }
     )
 
@@ -106,6 +106,7 @@ async function structuredRetriever(question) {
 }
 
 async function retriever(question) {
+  console.log('Standalone Question - ' + question)
   const structuredData = await structuredRetriever(question)
 
   const similaritySearchResults =
@@ -122,7 +123,7 @@ async function retriever(question) {
 
 const standaloneTemplate = `Given the following conversation and a follow up question, rephrase the follow up question to be a standalone question.
 Chat History:
-{conv_history}
+{conversationHistory}
 Follow Up Input: {question}
 Standalone question:`
 
@@ -141,7 +142,7 @@ const standaloneQuestionChain = standalonePrompt
   .pipe(new StringOutputParser())
 
 const retrieverChain = RunnableSequence.from([
-  prevResult => prevResult.standalone_question,
+  prevResult => prevResult.standaloneQuestion,
   retriever
 ])
 
@@ -149,21 +150,14 @@ const answerChain = answerPrompt.pipe(llm).pipe(new StringOutputParser())
 
 const chain = RunnableSequence.from([
   {
-    standalone_question: standaloneQuestionChain,
-    orignal_input: new RunnablePassthrough()
+    standaloneQuestion: standaloneQuestionChain,
+    orignalInput: new RunnablePassthrough()
   },
   {
     context: retrieverChain,
-    question: ({ orignal_input }) => orignal_input.question,
-    conv_history: ({ orignal_input }) => orignal_input.conv_history
+    question: ({ orignalInput }) => orignalInput.question,
+    conversationHistory: ({ orignalInput }) => orignalInput.conversationHistory
   },
-  /**----------------------
-   **      Debug chain
-   *------------------------**/
-  // prevResult => {
-  //   console.log('prevResult', prevResult)
-  //   return prevResult
-  // },
   answerChain
 ])
 
@@ -188,7 +182,7 @@ async function ask(question) {
   console.log(`Search Query - ${question}`)
   const answer = await chain.invoke({
     question,
-    conv_history: formatChatHistory(conversationHistory)
+    conversationHistory: formatChatHistory(conversationHistory)
   })
   conversationHistory.push(question)
   conversationHistory.push(answer)
