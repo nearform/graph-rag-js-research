@@ -38,7 +38,7 @@
   "dependencies": {
     "@langchain/community": "^0.2.13",
     "@langchain/core": "^0.2.9",
-    "@langchain/openai": "^0.2.0",
+    "@langchain/openai": "^0.2.1",
     "cheerio": "^1.0.0-rc.12",
     "langchain": "^0.2.6",
     "neo4j-driver": "^5.21.0",
