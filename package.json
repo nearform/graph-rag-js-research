@@ -36,7 +36,7 @@
     "*.{js,jsx}": "eslint --cache --fix"
   },
   "dependencies": {
-    "@langchain/community": "^0.2.17",
+    "@langchain/community": "^0.2.18",
     "@langchain/core": "^0.2.14",
     "@langchain/openai": "^0.2.1",
     "cheerio": "^1.0.0-rc.12",
