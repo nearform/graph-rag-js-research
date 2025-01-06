@@ -40,7 +40,7 @@
     "@langchain/core": "^0.3.27",
     "@langchain/openai": "^0.3.16",
     "cheerio": "^1.0.0",
-    "langchain": "^0.3.8",
+    "langchain": "^0.3.9",
     "neo4j-driver": "^5.27.0",
     "zod": "^3.24.1"
   }
