@@ -23,7 +23,7 @@
   },
   "homepage": "https://github.com/nearform/hub-template#readme",
   "devDependencies": {
-    "@commitlint/cli": "^19.6.1",
+    "@commitlint/cli": "^19.7.1",
     "@commitlint/config-conventional": "^19.7.1",
     "eslint": "^8.57.0",
     "eslint-config-prettier": "^10.0.1",
