@@ -37,7 +37,7 @@
   },
   "dependencies": {
     "@langchain/community": "^0.3.49",
-    "@langchain/core": "^0.3.62",
+    "@langchain/core": "^0.3.66",
     "@langchain/openai": "^0.6.3",
     "cheerio": "^1.1.2",
     "langchain": "^0.3.30",
